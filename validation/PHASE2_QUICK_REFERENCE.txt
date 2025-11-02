@@ -1,0 +1,155 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║           PHASE 2 ACCOUNT LINKING - VALIDATION QUICK REFERENCE            ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  BEFORE TESTING (Pre-Flight Check)                                       ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  bash validation/phase2_pretest_check.sh                                 ║
+║                                                                           ║
+║  Checks: Container, local server, Funnel, HTTPS, SSL                     ║
+║  Expected: All green ✓ before proceeding                                 ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  DURING TESTING (Real-Time Monitor) - SEPARATE TERMINAL                  ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  bash validation/phase2_log_monitor.sh                                   ║
+║                                                                           ║
+║  Watch for (in order):                                                   ║
+║    1. [GREEN]   Authorization request from Alexa                         ║
+║    2. [YELLOW]  Authorization code generated                             ║
+║    3. [MAGENTA] Redirect sent to Alexa                                   ║
+║    4. [BLUE]    Token exchange request                                   ║
+║    5. [YELLOW]  Access token generated                                   ║
+║    6. [YELLOW]  Refresh token generated                                  ║
+║    7. [GREEN]   Token response sent                                      ║
+║                                                                           ║
+║  Total time: 3-6 seconds                                                 ║
+║  Stop: Ctrl+C after completion                                           ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  AFTER TESTING (Validation)                                              ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  bash validation/phase2_posttest_validation.sh                           ║
+║                                                                           ║
+║  Results:                                                                ║
+║    SUCCESS (green)  → Verify in Alexa app, test skill                    ║
+║    PARTIAL (yellow) → Check Client Secret, try again                     ║
+║    FAILED (red)     → Run diagnostics (see below)                        ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  IF FAILED (Detailed Diagnostics)                                        ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  bash validation/phase2_diagnostics.sh                                   ║
+║                                                                           ║
+║  8-Step Diagnostic:                                                      ║
+║    Step 1: Was /authorize called? (Alexa reaching server?)               ║
+║    Step 2: Code generated? (Validation passed?)                          ║
+║    Step 3: Redirect sent? (Server responded?)                            ║
+║    Step 4: Token exchange requested? (Flow completed?)                   ║
+║    Step 5: Client credentials validated? (Secret correct?)               ║
+║    Step 6: Code validated? (Expired/used?)                               ║
+║    Step 7: Tokens generated? (Creation succeeded?)                       ║
+║    Step 8: Response sent? (Alexa notified?)                              ║
+║                                                                           ║
+║  Script identifies exact failure point + suggests fixes                  ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  INSPECT TOKENS (Security & Format Analysis)                             ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  bash validation/phase2_inspect_tokens.sh                                ║
+║                                                                           ║
+║  Shows:                                                                  ║
+║    • Access token (full, length, format)                                 ║
+║    • Refresh token (full, length)                                        ║
+║    • JWT decoding (header + payload)                                     ║
+║    • Expiration times                                                    ║
+║    • Security analysis (length, uniqueness)                              ║
+║    • Usage examples (API testing)                                        ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  COMMON ERRORS & QUICK FIXES                                             ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  Error 1: "Authorization endpoint not called"                            ║
+║    → Check: Authorization URI in Alexa console                           ║
+║    → Fix: tailscale funnel --bg --https=443 8099                         ║
+║                                                                           ║
+║  Error 2: "Code generated but no tokens"                                 ║
+║    → Check: Alexa app for error messages                                 ║
+║    → Fix: Try account linking again                                      ║
+║                                                                           ║
+║  Error 3: "Client authentication failed"                                 ║
+║    → Check: Client Secret in Alexa console                               ║
+║    → Fix: Ensure it matches OAuth server config                          ║
+║                                                                           ║
+║  Error 4: "Invalid authorization code"                                   ║
+║    → Check: Time since code generation (<10 min?)                        ║
+║    → Fix: Start fresh account linking attempt                            ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  VERIFY IN ALEXA APP                                                     ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  Steps:                                                                  ║
+║    1. Open Alexa app                                                     ║
+║    2. More > Skills & Games > Your Skills                                ║
+║    3. Find "Music Assistant"                                             ║
+║    4. Should show: "Linked" (not "Link Account")                         ║
+║    5. Test: "Alexa, open Music Assistant"                                ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  MANUAL LOG COMMANDS                                                     ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  View all logs:        docker logs oauth-server                          ║
+║  Last 50 lines:        docker logs --tail 50 oauth-server                ║
+║  Follow real-time:     docker logs -f oauth-server                       ║
+║  Funnel status:        tailscale funnel status                           ║
+║  Container status:     docker ps | grep oauth-server                     ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  DOCUMENTATION                                                           ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  Full guide:           validation/PHASE2_VALIDATION_GUIDE.md             ║
+║  Expected logs:        validation/EXPECTED_LOG_SEQUENCE.md               ║
+║  This reference:       validation/PHASE2_QUICK_REFERENCE.txt             ║
+║                                                                           ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+║                                                                           ║
+║  TESTING WORKFLOW (Start Here!)                                          ║
+║  ═══════════════════════════════════════════════════════════════         ║
+║                                                                           ║
+║  Terminal 1:                                                             ║
+║    cd /Users/jason/Library/Mobile Documents/com~apple~CloudDocs/\        ║
+║       Claude Stuff/projects/MusicAssistantApple                          ║
+║    bash validation/phase2_pretest_check.sh                               ║
+║    bash validation/phase2_log_monitor.sh                                 ║
+║                                                                           ║
+║  Terminal 2 (or phone):                                                  ║
+║    Open Alexa app → Link Account                                         ║
+║    Watch Terminal 1 for real-time logs                                   ║
+║                                                                           ║
+║  Terminal 1 (after completion, press Ctrl+C):                            ║
+║    bash validation/phase2_posttest_validation.sh                         ║
+║    bash validation/phase2_diagnostics.sh       (if failed)               ║
+║    bash validation/phase2_inspect_tokens.sh    (to see tokens)           ║
+║                                                                           ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+Print this reference and keep handy during testing!
+
+For detailed explanations, see: validation/PHASE2_VALIDATION_GUIDE.md

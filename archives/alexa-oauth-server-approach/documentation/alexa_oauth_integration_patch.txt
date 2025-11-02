@@ -1,0 +1,18 @@
+
+# Add this to /app/venv/lib/python3.13/site-packages/music_assistant/providers/alexa/__init__.py
+# At the top of the file, after other imports:
+
+import sys
+sys.path.insert(0, '/data')
+from alexa_oauth_endpoints import register_oauth_routes
+
+# In the setup() function or __init__ method, add:
+
+async def setup(mass: MusicAssistant) -> AlexaProvider:
+    """Initialize provider(instance) with given configuration."""
+    provider = AlexaProvider(mass)
+
+    # Register OAuth endpoints
+    register_oauth_routes(mass.webserver.app)
+
+    return provider

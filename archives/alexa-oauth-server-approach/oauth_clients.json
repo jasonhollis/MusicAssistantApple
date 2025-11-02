@@ -1,0 +1,10 @@
+{
+  "amazon-alexa": {
+    "client_secret": "Nv8Xh-zG_wR3mK2pL4jF9qY6bT5vC1xD0sW7aM",
+    "redirect_uris": [
+      "https://pitangui.amazon.com/auth/o2/callback",
+      "https://layla.amazon.com/api/skill/link/MKXZK47785HJ2",
+      "https://alexa.amazon.co.jp/api/skill/link/MKXZK47785HJ2"
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+--- a/music_assistant/controllers/media/artists.py
++++ b/music_assistant/controllers/media/artists.py
+@@ -45,6 +45,11 @@ class ArtistsController(MediaControllerBase[Artist]):
+         # register (extra) api handlers
+         api_base = self.api_base
+         self.mass.register_api_command(f"music/{api_base}/artist_albums", self.albums)
+         self.mass.register_api_command(f"music/{api_base}/artist_tracks", self.tracks)
++        # Alphabetical navigation API handlers
++        self.mass.register_api_command(f"music/{api_base}/by_letter", self.library_items_by_letter)
++        self.mass.register_api_command(f"music/{api_base}/letter_counts", self.library_letter_counts)
++        self.mass.register_api_command(f"music/{api_base}/search_library", self.search_library)
+
+     async def library_count(
+         self, favorite_only: bool = False, album_artists_only: bool = False
+@@ -95,6 +100,130 @@ class ArtistsController(MediaControllerBase[Artist]):
+             extra_query_params=extra_query_params,
+         )
+
++    async def library_items_by_letter(
++        self,
++        letter: str,
++        favorite: bool | None = None,
++        limit: int = 500,
++        offset: int = 0,
++        order_by: str = "sort_name",
++    ) -> list[Artist]:
++        """
++        Get library artists filtered by starting letter.
++
++        Args:
++            letter: Single letter (A-Z) or '#' for non-alpha, or 'ALL' for all artists
++            favorite: Filter by favorite status
++            limit: Maximum number of results
++            offset: Pagination offset
++            order_by: Sort field (default: sort_name)
++
++        Returns:
++            List of artists starting with specified letter
++        """
++        # Validate letter parameter
++        letter = letter.upper().strip()
++        if len(letter) != 1 and letter != 'ALL':
++            raise ValueError(f"Invalid letter: {letter}. Must be A-Z, #, or ALL")
++
++        # Build query
++        extra_query_parts = []
++        extra_query_params = {}
++
++        if letter == '#':
++            # Non-alphabetic starts (numbers, symbols)
++            extra_query_parts.append(
++                "UPPER(SUBSTR(sort_name, 1, 1)) NOT IN "
++                "('A','B','C','D','E','F','G','H','I','J','K','L','M',"
++                "'N','O','P','Q','R','S','T','U','V','W','X','Y','Z')"
++            )
++        elif letter != 'ALL':
++            # Specific letter
++            extra_query_parts.append("UPPER(SUBSTR(sort_name, 1, 1)) = :letter")
++            extra_query_params['letter'] = letter
++
++        # Use existing library_items method with extra query
++        return await self.library_items(
++            favorite=favorite,
++            limit=limit,
++            offset=offset,
++            order_by=order_by,
++            extra_query=' AND '.join(extra_query_parts) if extra_query_parts else None,
++            extra_query_params=extra_query_params,
++        )
++
++    async def library_letter_counts(
++        self,
++        favorite_only: bool = False,
++        album_artists_only: bool = False,
++    ) -> dict[str, int]:
++        """
++        Get count of artists for each starting letter.
++
++        Returns:
++            Dictionary mapping letters to counts, e.g. {'A': 45, 'B': 32, ...}
++        """
++        sql_query = f"""
++            SELECT
++                UPPER(SUBSTR(sort_name, 1, 1)) as letter,
++                COUNT(*) as count
++            FROM {self.db_table}
++        """
++
++        query_parts = []
++        if favorite_only:
++            query_parts.append("favorite = 1")
++        if album_artists_only:
++            query_parts.append(
++                f"item_id in (select {DB_TABLE_ALBUM_ARTISTS}.artist_id "
++                f"FROM {DB_TABLE_ALBUM_ARTISTS})"
++            )
++
++        if query_parts:
++            sql_query += f" WHERE {' AND '.join(query_parts)}"
++
++        sql_query += " GROUP BY UPPER(SUBSTR(sort_name, 1, 1)) ORDER BY letter"
++
++        # Execute query
++        result = {}
++        async with self.mass.music.database.get_cursor() as cursor:
++            await cursor.execute(sql_query)
++            rows = await cursor.fetchall()
++            for row in rows:
++                letter = row[0]
++                count = row[1]
++                # Group non-alpha into '#'
++                if letter and letter.isalpha():
++                    result[letter] = count
++                else:
++                    result['#'] = result.get('#', 0) + count
++
++        return result
++
++    async def search_library(
++        self,
++        query: str,
++        limit: int = 100,
++    ) -> list[Artist]:
++        """
++        Search library artists by name.
++
++        Args:
++            query: Search query string
++            limit: Maximum number of results
++
++        Returns:
++            List of matching artists, sorted by relevance
++        """
++        if not query or len(query) < 2:
++            return []
++
++        # Use existing search parameter in library_items
++        return await self.library_items(
++            search=query,
++            limit=limit,
++            order_by="sort_name",
++        )
++
+     async def tracks(
+         self,
+         item_id: str,
